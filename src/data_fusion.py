@@ -109,24 +109,6 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
     "tree": {
         0: 5,   # tree → tree
     },
-    # Drone Crash Avoidance dataset (universe.roboflow.com/tylervisimoai/drone-crash-avoidance)
-    # Source: actual drone crash compilation videos — forward-facing eye-level perspective.
-    # Explicitly built for sense-and-avoid. 700 images.
-    #
-    # IMPORTANT: verify these IDs against data.yaml in the downloaded zip before running.
-    # The class list from the dataset description (1-indexed) is:
-    #   Tree(1), Pole(2), Wire(3), Vehicle(4), Person(5), Drone(6), Building(7), Ground(8)
-    # Converted to 0-indexed YOLO IDs:
-    #   0=Tree, 1=Pole, 2=Wire, 3=Vehicle, 4=Person, 5=Drone, 6=Building, 7=Ground
-    #
-    # Discarded: Pole (no master class), Drone (no master class), Ground (no master class)
-    "drone_crash": {
-        0: 5,   # Tree     → tree
-        2: 3,   # Wire     → wire      (forward-facing perspective supplement to TTPLA)
-        3: 1,   # Vehicle  → vehicle   (forward-facing perspective supplement to VisDrone)
-        4: 0,   # Person   → human     (forward-facing perspective supplement to Heridal)
-        6: 2,   # Building → building  (forward-facing perspective supplement to Drone Buildings)
-    },
 }
 
 IMAGE_EXTENSIONS = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"]
@@ -561,8 +543,8 @@ def generate_data_yaml(output_dir: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="AVSCA UAV Dataset Fusion — merges VisDrone, Heridal, TTPLA, and "
-                    "Drone Buildings into a single Ultralytics YOLO dataset.",
+        description="AVSCA UAV Dataset Fusion — merges VisDrone, Heridal, TTPLA, "
+                    "Drone Buildings, and yolov8tree into a single Ultralytics YOLO dataset.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -587,12 +569,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to yolov8tree dataset folder or .zip archive (YOLOv8 export, single class: tree)",
     )
     parser.add_argument(
-        "--drone_crash_dir", type=str, default=None,
-        help="Path to Drone Crash Avoidance dataset folder or .zip archive (YOLOv8 export). "
-             "Forward-facing eye-level perspective; supplements tree, wire, vehicle, "
-             "human, and building classes.",
-    )
-    parser.add_argument(
         "--output_dir", type=str, default="/content/master_uav_dataset",
         help="Output directory for the fused dataset",
     )
@@ -610,7 +586,6 @@ def main() -> None:
         "heridal":      args.heridal_dir,
         "building":     args.building_dir,
         "tree":         args.tree_dir,
-        "drone_crash":  args.drone_crash_dir,
     }
 
     if (
@@ -620,7 +595,7 @@ def main() -> None:
     ):
         log.error(
             "No dataset paths provided. Pass at least one of "
-            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir, --tree_dir, --drone_crash_dir."
+            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir, --tree_dir."
         )
         raise SystemExit(1)
 
