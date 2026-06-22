@@ -65,7 +65,7 @@ Each argument accepts either a directory path or a `.zip` archive — zips are e
    VisDrone2019-DET-test-dev.zip
    HERIDAL.yolov8.zip
    data_original_size_v1.zip
-   drone-buildings.yolov8.zip
+   Drone Buildings.v1i.yolov8.zip
    ```
 
 2. **Push this repo to GitHub** (one-time):
