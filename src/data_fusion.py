@@ -394,10 +394,11 @@ def parse_args() -> argparse.Namespace:
                     "into a single Ultralytics YOLO dataset.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--visdrone_dir", type=str, default=None,
-                        help="Path to VisDrone-DET dataset folder or .zip archive. "
-                             "Accepts a single zip or a folder containing multiple "
-                             "split zips (trainset, valset, testset-dev).")
+    parser.add_argument("--visdrone_dir", type=str, nargs="*", default=None,
+                        metavar="PATH",
+                        help="One or more paths to VisDrone-DET zips or folders "
+                             "(trainset, valset, testset-dev). Pass the flag once "
+                             "per file, e.g. --visdrone_dir train.zip val.zip test.zip")
     parser.add_argument("--heridal_dir", type=str, default=None,
                         help="Path to Heridal dataset folder or .zip archive")
     parser.add_argument("--ttpla_dir", type=str, default=None,
@@ -422,7 +423,7 @@ def main() -> None:
         "wisard":  args.wisard_dir,
     }
 
-    if args.visdrone_dir is None and all(v is None for v in yolo_dataset_inputs.values()):
+    if not args.visdrone_dir and all(v is None for v in yolo_dataset_inputs.values()):
         log.error("No dataset paths provided. Pass at least one of "
                   "--visdrone_dir, --heridal_dir, --ttpla_dir, --wisard_dir.")
         raise SystemExit(1)
@@ -437,9 +438,10 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="avsca_scratch_") as scratch_str:
         scratch = Path(scratch_str)
 
-        # --- VisDrone (custom CSV parser) ---
-        if args.visdrone_dir is not None:
-            visdrone_path = resolve_dataset_path(args.visdrone_dir, scratch, "visdrone")
+        # --- VisDrone (custom CSV parser, one entry per zip/folder) ---
+        for idx, raw_vd_path in enumerate(args.visdrone_dir or []):
+            scratch_name = f"visdrone_{idx}"
+            visdrone_path = resolve_dataset_path(raw_vd_path, scratch, scratch_name)
             if visdrone_path is not None:
                 process_visdrone(visdrone_path, output_dir, stats)
 
