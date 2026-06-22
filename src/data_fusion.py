@@ -100,6 +100,13 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
     "heridal": {
         0: 0,   # human/person → human
     },
+    # Drone Buildings dataset (universe.roboflow.com/buildingyolo/drone-buildings)
+    # Classes: building (0), building2 (1), statue (2)
+    # Both building variants map to master class 2; statue is discarded.
+    "building": {
+        0: 2,   # building  → building
+        1: 2,   # building2 → building
+    },
 }
 
 IMAGE_EXTENSIONS = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"]
@@ -534,8 +541,8 @@ def generate_data_yaml(output_dir: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="AVSCA UAV Dataset Fusion — merges VisDrone, Heridal, TTPLA, WiSARD "
-                    "into a single Ultralytics YOLO dataset.",
+        description="AVSCA UAV Dataset Fusion — merges VisDrone, Heridal, TTPLA, and "
+                    "Drone Buildings into a single Ultralytics YOLO dataset.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -552,6 +559,10 @@ def parse_args() -> argparse.Namespace:
         help="Path to TTPLA dataset folder or .zip archive (COCO JSON format)",
     )
     parser.add_argument(
+        "--building_dir", type=str, default=None,
+        help="Path to Drone Buildings dataset folder or .zip archive (YOLOv8 export)",
+    )
+    parser.add_argument(
         "--output_dir", type=str, default="/content/master_uav_dataset",
         help="Output directory for the fused dataset",
     )
@@ -566,7 +577,8 @@ def main() -> None:
     log.info("Output directory: %s", output_dir)
 
     yolo_dataset_inputs = {
-        "heridal": args.heridal_dir,
+        "heridal":  args.heridal_dir,
+        "building": args.building_dir,
     }
 
     if (
@@ -576,7 +588,7 @@ def main() -> None:
     ):
         log.error(
             "No dataset paths provided. Pass at least one of "
-            "--visdrone_dir, --heridal_dir, --ttpla_dir."
+            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir."
         )
         raise SystemExit(1)
 

@@ -1,6 +1,6 @@
 # UAV Dataset Fusion — AVSCA Perception Pipeline
 
-Fuses three aerial computer vision datasets into a single **Ultralytics-compatible YOLO dataset** with 6 master classes, designed for the AVSCA (Autonomous Visual Surveillance and Classification for Airborne imagery) system running on an NVIDIA Jetson Orin Nano.
+Fuses four aerial computer vision datasets into a single **Ultralytics-compatible YOLO dataset** with 6 master classes, designed for the AVSCA (Autonomous Visual Surveillance and Classification for Airborne imagery) system running on an NVIDIA Jetson Orin Nano.
 
 ## Master Classes
 
@@ -20,6 +20,7 @@ Fuses three aerial computer vision datasets into a single **Ultralytics-compatib
 | [VisDrone-DET](https://github.com/VisDrone/VisDrone-Dataset) | GitHub | Custom CSV, absolute pixels, 1-indexed | pedestrian/people→0, car/van/truck/bus→1, bicycle/tricycle/motor→4 |
 | [Heridal](https://universe.roboflow.com/licenta-ynwvo/heridal-lrbkc) | Roboflow | YOLO format | person→0 |
 | [TTPLA](https://github.com/R3ab/ttpla_dataset) | GitHub | COCO JSON, polygon segmentation | cable→3, tower_lattice/wooden/monopole/tucohy→5 |
+| [Drone Buildings](https://universe.roboflow.com/buildingyolo/drone-buildings) | Roboflow | YOLO format | building/building2→2, statue discarded |
 
 ## Project Structure
 
@@ -45,6 +46,7 @@ python src/data_fusion.py \
                  /path/to/VisDrone2019-DET-test-dev.zip \
   --heridal_dir  /path/to/HERIDAL.yolov8.zip \
   --ttpla_dir    /path/to/data_original_size_v1.zip \
+  --building_dir /path/to/drone-buildings.yolov8.zip \
   --output_dir   ./master_uav_dataset
 ```
 
@@ -63,6 +65,7 @@ Each argument accepts either a directory path or a `.zip` archive — zips are e
    VisDrone2019-DET-test-dev.zip
    HERIDAL.yolov8.zip
    data_original_size_v1.zip
+   drone-buildings.yolov8.zip
    ```
 
 2. **Push this repo to GitHub** (one-time):
@@ -102,12 +105,14 @@ names: [human, vehicle, building, wire, two-wheeler, utility-tower]
 usage: data_fusion.py [-h] [--visdrone_dir [PATH ...]]
                       [--heridal_dir HERIDAL_DIR]
                       [--ttpla_dir TTPLA_DIR]
+                      [--building_dir BUILDING_DIR]
                       [--output_dir OUTPUT_DIR]
 
 optional arguments:
   --visdrone_dir    One or more VisDrone-DET zip/folder paths (train, val, test-dev)
   --heridal_dir     Path to Heridal dataset folder or .zip archive
   --ttpla_dir       Path to TTPLA dataset folder or .zip archive
+  --building_dir    Path to Drone Buildings dataset folder or .zip archive
   --output_dir      Output directory (default: /content/master_uav_dataset)
 ```
 
