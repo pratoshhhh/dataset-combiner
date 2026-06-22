@@ -1,6 +1,6 @@
 """
 AVSCA UAV Dataset Fusion Pipeline
-Merges VisDrone, Heridal, TTPLA, and WiSARD into a single
+Merges VisDrone, Heridal, and TTPLA into a single
 Ultralytics-compatible YOLO dataset with 6 master classes.
 
 Annotation format per dataset
@@ -12,8 +12,6 @@ Heridal       : YOLO format — class cx cy w h (normalised).
 TTPLA         : COCO JSON   — instance-segmentation polygons; bboxes are
                absolute pixels [x_left, y_top, width, height].
                Category names are used for remapping (not integer IDs).
-WiSARD        : YOLO format — class cx cy w h (normalised).
-               Images live in an RGB/ sibling folder, not images/.
 """
 
 import argparse
@@ -102,10 +100,6 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
     "heridal": {
         0: 0,   # human/person → human
     },
-    "wisard": {
-        0: 0,   # human/person → human
-        1: 1,   # vehicle      → vehicle (present in full WiSARDv1)
-    },
 }
 
 IMAGE_EXTENSIONS = [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG"]
@@ -145,19 +139,17 @@ def find_image(label_path: Path) -> Path | None:
 
     Search order:
     1. Same directory as label (same stem, multiple extensions)
-    2. Sibling 'images/' folder   — VisDrone annotations/ layout
-    3. Sibling 'RGB/' folder      — WiSARD Multi Modal layout
+    2. Sibling 'images/' folder — covers VisDrone annotations/ layout
     """
     for ext in IMAGE_EXTENSIONS:
         candidate = label_path.with_suffix(ext)
         if candidate.exists():
             return candidate
 
-    for sibling in ("images", "RGB"):
-        for ext in IMAGE_EXTENSIONS:
-            candidate = label_path.parent.parent / sibling / (label_path.stem + ext)
-            if candidate.exists():
-                return candidate
+    for ext in IMAGE_EXTENSIONS:
+        candidate = label_path.parent.parent / "images" / (label_path.stem + ext)
+        if candidate.exists():
+            return candidate
 
     return None
 
@@ -560,10 +552,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to TTPLA dataset folder or .zip archive (COCO JSON format)",
     )
     parser.add_argument(
-        "--wisard_dir", type=str, default=None,
-        help="Path to WiSARD dataset folder or .zip archive (YOLO format, images in RGB/)",
-    )
-    parser.add_argument(
         "--output_dir", type=str, default="/content/master_uav_dataset",
         help="Output directory for the fused dataset",
     )
@@ -579,7 +567,6 @@ def main() -> None:
 
     yolo_dataset_inputs = {
         "heridal": args.heridal_dir,
-        "wisard":  args.wisard_dir,
     }
 
     if (
@@ -589,7 +576,7 @@ def main() -> None:
     ):
         log.error(
             "No dataset paths provided. Pass at least one of "
-            "--visdrone_dir, --heridal_dir, --ttpla_dir, --wisard_dir."
+            "--visdrone_dir, --heridal_dir, --ttpla_dir."
         )
         raise SystemExit(1)
 
