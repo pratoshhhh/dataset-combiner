@@ -1,0 +1,45 @@
+# Model weights and exports — never commit these
+*.onnx
+*.pt
+*.pth
+*.engine
+*.trt
+*.torchscript
+*.mlmodel
+*.tflite
+*.pb
+runs/
+
+# Dataset zips and raw data — these are large binaries
+*.zip
+*.tar.gz
+*.tar
+master_uav_dataset/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Secrets / credentials
+.env
+*.key
+*.pem
+credentials.json
