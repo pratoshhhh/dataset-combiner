@@ -13,7 +13,7 @@ Fuses five aerial computer vision datasets into a single **Ultralytics-compatibl
 | 2 | building | Drone Buildings, Drone Crash Avoidance |
 | 3 | wire | TTPLA, Drone Crash Avoidance |
 | 4 | utility-tower | TTPLA |
-| 5 | tree | Drone Crash Avoidance |
+| 5 | tree | yolov8tree, Drone Crash Avoidance |
 
 ---
 
@@ -25,6 +25,7 @@ Fuses five aerial computer vision datasets into a single **Ultralytics-compatibl
 | [Heridal](https://universe.roboflow.com/licenta-ynwvo/heridal-lrbkc) | Roboflow | YOLO format | Overhead | person→0 |
 | [TTPLA](https://github.com/R3ab/ttpla_dataset) | GitHub | COCO JSON, polygon segmentation | Overhead | cable→3, tower_lattice/wooden/monopole/tucohy→4 |
 | [Drone Buildings](https://universe.roboflow.com/buildingyolo/drone-buildings) | Roboflow | YOLO format | Overhead/oblique | building/building2→2 |
+| [yolov8tree](https://universe.roboflow.com/trees-sam/yolov8tree/dataset/2) | Roboflow | YOLO format | Overhead/oblique | tree→5 |
 | [Drone Crash Avoidance](https://universe.roboflow.com/tylervisimoai/drone-crash-avoidance) | Roboflow | YOLO format | Forward-facing (eye-level) | Tree→5, Wire→3, Vehicle→1, Person→0, Building→2 |
 
 > **Note on Drone Crash Avoidance class IDs:** verify the integer IDs in `data.yaml` after downloading — the remap table in `src/data_fusion.py` includes instructions.
@@ -58,6 +59,7 @@ python src/data_fusion.py \
   --heridal_dir  HERIDAL.yolov8.zip \
   --ttpla_dir    data_original_size_v1.zip \
   --building_dir "Drone Buildings.v1i.yolov8.zip" \
+  --tree_dir     yolov8tree.v2i.yolov8.zip \
   --drone_crash_dir drone-crash-avoidance.yolov8.zip \
   --output_dir   ./master_uav_dataset
 ```
@@ -78,6 +80,7 @@ Each argument accepts either a directory path or a `.zip` archive — zips are e
    HERIDAL.yolov8.zip
    data_original_size_v1.zip
    Drone Buildings.v1i.yolov8.zip
+   yolov8tree.v2i.yolov8.zip
    drone-crash-avoidance.yolov8.zip
    ```
 
@@ -125,6 +128,7 @@ optional arguments:
   --heridal_dir       Path to Heridal dataset folder or .zip archive
   --ttpla_dir         Path to TTPLA dataset folder or .zip archive (COCO JSON)
   --building_dir      Path to Drone Buildings dataset folder or .zip archive
+  --tree_dir          Path to yolov8tree dataset folder or .zip archive
   --drone_crash_dir   Path to Drone Crash Avoidance dataset folder or .zip archive
   --output_dir        Output directory (default: /content/master_uav_dataset)
 ```

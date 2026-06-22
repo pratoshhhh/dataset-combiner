@@ -103,6 +103,12 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
         0: 2,   # building  → building
         1: 2,   # building2 → building
     },
+    # yolov8tree dataset (universe.roboflow.com/trees-sam/yolov8tree)
+    # Auto-labeled with SAM. Single class: tree (0) → tree (5)
+    # Verify class ID against data.yaml in the downloaded zip.
+    "tree": {
+        0: 5,   # tree → tree
+    },
     # Drone Crash Avoidance dataset (universe.roboflow.com/tylervisimoai/drone-crash-avoidance)
     # Source: actual drone crash compilation videos — forward-facing eye-level perspective.
     # Explicitly built for sense-and-avoid. 700 images.
@@ -577,6 +583,10 @@ def parse_args() -> argparse.Namespace:
         help="Path to Drone Buildings dataset folder or .zip archive (YOLOv8 export)",
     )
     parser.add_argument(
+        "--tree_dir", type=str, default=None,
+        help="Path to yolov8tree dataset folder or .zip archive (YOLOv8 export, single class: tree)",
+    )
+    parser.add_argument(
         "--drone_crash_dir", type=str, default=None,
         help="Path to Drone Crash Avoidance dataset folder or .zip archive (YOLOv8 export). "
              "Forward-facing eye-level perspective; supplements tree, wire, vehicle, "
@@ -599,6 +609,7 @@ def main() -> None:
     yolo_dataset_inputs = {
         "heridal":      args.heridal_dir,
         "building":     args.building_dir,
+        "tree":         args.tree_dir,
         "drone_crash":  args.drone_crash_dir,
     }
 
@@ -609,7 +620,7 @@ def main() -> None:
     ):
         log.error(
             "No dataset paths provided. Pass at least one of "
-            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir, --drone_crash_dir."
+            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir, --tree_dir, --drone_crash_dir."
         )
         raise SystemExit(1)
 
