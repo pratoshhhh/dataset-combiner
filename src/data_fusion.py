@@ -3,12 +3,21 @@ AVSCA UAV Dataset Fusion Pipeline
 Merges VisDrone, Heridal, TTPLA, and WiSARD into a single
 Ultralytics-compatible YOLO dataset with 6 master classes.
 
-VisDrone annotation format (CSV, 1-indexed classes, absolute pixel coords)
-is handled by a dedicated parser. All other datasets are expected to already
-be in YOLO format (normalized cx cy w h).
+Annotation format per dataset
+-------------------------------
+VisDrone-DET : Custom CSV  — bbox_left, bbox_top, bbox_width, bbox_height,
+               score, object_category, truncation, occlusion.
+               Classes are 1-indexed. Coordinates are absolute pixels.
+Heridal       : YOLO format — class cx cy w h (normalised).
+TTPLA         : COCO JSON   — instance-segmentation polygons; bboxes are
+               absolute pixels [x_left, y_top, width, height].
+               Category names are used for remapping (not integer IDs).
+WiSARD        : YOLO format — class cx cy w h (normalised).
+               Images live in an RGB/ sibling folder, not images/.
 """
 
 import argparse
+import json
 import logging
 import shutil
 import zipfile
@@ -39,34 +48,51 @@ MASTER_CLASSES = {
 }
 
 # ---------------------------------------------------------------------------
-# VisDrone native class IDs (1-indexed in the annotation files)
+# VisDrone native class IDs (1-indexed)
 #
-# 0  = ignored region  (score field == 0 also flags ignored)
-# 1  = pedestrian
-# 2  = people
-# 3  = bicycle
-# 4  = car
-# 5  = van
-# 6  = truck
-# 7  = tricycle
-# 8  = awning-tricycle
-# 9  = bus
-# 10 = motor
-# 11 = others
-#
-# We discard: 0 (ignored), 11 (others)
+# 0  = ignored region  (score == 0 also flags ignored)
+# 1  = pedestrian      → human (0)
+# 2  = people          → human (0)
+# 3  = bicycle         → two-wheeler (4)
+# 4  = car             → vehicle (1)
+# 5  = van             → vehicle (1)
+# 6  = truck           → vehicle (1)
+# 7  = tricycle        → two-wheeler (4)
+# 8  = awning-tricycle → two-wheeler (4)
+# 9  = bus             → vehicle (1)
+# 10 = motor           → two-wheeler (4)
+# 11 = others          → discard
 # ---------------------------------------------------------------------------
 VISDRONE_REMAP: dict[int, int] = {
-    1:  0,   # pedestrian      → human
-    2:  0,   # people          → human
-    4:  1,   # car             → vehicle
-    5:  1,   # van             → vehicle
-    6:  1,   # truck           → vehicle
-    9:  1,   # bus             → vehicle
-    3:  4,   # bicycle         → two-wheeler
-    7:  4,   # tricycle        → two-wheeler
-    8:  4,   # awning-tricycle → two-wheeler
-    10: 4,   # motor           → two-wheeler
+    1:  0,
+    2:  0,
+    4:  1,
+    5:  1,
+    6:  1,
+    9:  1,
+    3:  4,
+    7:  4,
+    8:  4,
+    10: 4,
+}
+
+# ---------------------------------------------------------------------------
+# TTPLA category name → master class (COCO JSON uses names, not fixed IDs)
+#
+# Confirmed classes from dataset inspection:
+#   cable          → wire (3)
+#   tower_lattice  → utility-tower (5)
+#   tower_wooden   → utility-tower (5)
+#   tower_monopole → utility-tower (5)
+#   tower_tucohy   → utility-tower (5)   ← 5th class found in actual data
+#   void           → discard
+# ---------------------------------------------------------------------------
+TTPLA_NAME_REMAP: dict[str, int] = {
+    "cable":          3,
+    "tower_lattice":  5,
+    "tower_wooden":   5,
+    "tower_monopole": 5,
+    "tower_tucohy":   5,
 }
 
 # ---------------------------------------------------------------------------
@@ -76,15 +102,9 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
     "heridal": {
         0: 0,   # human/person → human
     },
-    "ttpla": {
-        0: 3,   # cable          → wire
-        1: 5,   # tower_lattice  → utility-tower
-        2: 5,   # tower_wooden   → utility-tower
-        3: 5,   # tower_monopole → utility-tower
-    },
     "wisard": {
-        0: 0,   # human/person signature → human
-        1: 1,   # vehicle signature      → vehicle
+        0: 0,   # human/person → human
+        1: 1,   # vehicle      → vehicle (present in full WiSARDv1)
     },
 }
 
@@ -123,30 +143,33 @@ def resolve_dataset_path(raw_path: str, scratch_root: Path, name: str) -> Path |
 def find_image(label_path: Path) -> Path | None:
     """Locate the matching image for a label file.
 
-    Checks the same directory first, then a sibling 'images/' folder
-    (covers the VisDrone annotations/ → images/ layout and similar).
+    Search order:
+    1. Same directory as label (same stem, multiple extensions)
+    2. Sibling 'images/' folder   — VisDrone annotations/ layout
+    3. Sibling 'RGB/' folder      — WiSARD Multi Modal layout
     """
     for ext in IMAGE_EXTENSIONS:
         candidate = label_path.with_suffix(ext)
         if candidate.exists():
             return candidate
 
-    for ext in IMAGE_EXTENSIONS:
-        candidate = label_path.parent.parent / "images" / (label_path.stem + ext)
-        if candidate.exists():
-            return candidate
+    for sibling in ("images", "RGB"):
+        for ext in IMAGE_EXTENSIONS:
+            candidate = label_path.parent.parent / sibling / (label_path.stem + ext)
+            if candidate.exists():
+                return candidate
 
     return None
 
 
 def infer_split(path: Path) -> str:
-    """Infer train/val split from the path hierarchy."""
+    """Infer train/val split from the path hierarchy.
+
+    testset-dev GT is available, so we fold test into train for more data.
+    """
     parts = [p.lower() for p in path.parts]
     if "val" in parts or "valid" in parts or "validation" in parts:
         return "val"
-    if "test" in parts:
-        # testset-dev has GT so we fold it into train
-        return "train"
     return "train"
 
 
@@ -178,7 +201,7 @@ def write_sample(
 
 
 # ---------------------------------------------------------------------------
-# VisDrone-specific parser
+# VisDrone-specific parser (custom CSV format)
 # ---------------------------------------------------------------------------
 
 def parse_visdrone_annotation(
@@ -189,12 +212,10 @@ def parse_visdrone_annotation(
     """Convert a VisDrone CSV annotation file to YOLO-format lines.
 
     VisDrone format per line:
-        bbox_left, bbox_top, bbox_width, bbox_height, score, object_category,
-        truncation, occlusion
+        bbox_left, bbox_top, bbox_width, bbox_height, score,
+        object_category, truncation, occlusion
 
-    score == 0 means the region is marked 'ignored' and must be skipped.
-    object_category == 0 also means ignored.
-    Coordinates are absolute pixels; we convert to normalised cx cy w h.
+    score == 0 flags an ignored region; object_category == 0 also means ignored.
     """
     remapped: list[str] = []
 
@@ -233,7 +254,7 @@ def parse_visdrone_annotation(
         if master_cls is None:
             continue  # unmapped class (e.g. 'others' = 11)
 
-        # Clamp to image bounds
+        # Clamp to image bounds before normalising
         x1    = max(0, x1)
         y1    = max(0, y1)
         w_box = min(w_box, img_w - x1)
@@ -287,7 +308,136 @@ def process_visdrone(dataset_dir: Path, output_dir: Path, stats: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Generic YOLO-format dataset processor
+# TTPLA-specific parser (COCO JSON format)
+# ---------------------------------------------------------------------------
+
+def _is_coco_json(path: Path) -> bool:
+    """Quick check: does this JSON file look like a COCO annotation file?"""
+    try:
+        with path.open(encoding="utf-8") as f:
+            head = f.read(512)
+        return '"images"' in head and '"annotations"' in head and '"categories"' in head
+    except OSError:
+        return False
+
+
+def process_ttpla(dataset_dir: Path, output_dir: Path, stats: dict) -> None:
+    """Process TTPLA from its COCO JSON annotation files.
+
+    The zip contains images and one or more COCO JSON files
+    (typically per split: train/val/test).
+    Category mapping is done by name, not by integer ID, to be robust
+    against varying category orderings in different JSON exports.
+    """
+    json_files = [p for p in dataset_dir.rglob("*.json") if _is_coco_json(p)]
+
+    if not json_files:
+        log.warning(
+            "No COCO JSON annotation files found in TTPLA dataset at %s. "
+            "Expected files with 'images', 'annotations', and 'categories' keys.",
+            dataset_dir,
+        )
+        return
+
+    log.info("Processing dataset 'ttpla' — %d COCO JSON file(s) found", len(json_files))
+
+    for json_path in json_files:
+        split = infer_split(json_path)
+
+        try:
+            with json_path.open(encoding="utf-8") as f:
+                coco = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            log.warning("Cannot parse COCO JSON %s: %s", json_path, exc)
+            stats["errors"] += 1
+            continue
+
+        # Build category_id → master_class using category name
+        cat_id_to_master: dict[int, int] = {}
+        for cat in coco.get("categories", []):
+            name = cat.get("name", "").lower().strip()
+            master = TTPLA_NAME_REMAP.get(name)
+            if master is not None:
+                cat_id_to_master[cat["id"]] = master
+
+        # Build image_id → image metadata
+        img_meta: dict[int, dict] = {}
+        for img in coco.get("images", []):
+            img_meta[img["id"]] = {
+                "file_name": img["file_name"],
+                "width":     img["width"],
+                "height":    img["height"],
+            }
+
+        # Group annotations by image_id
+        ann_by_image: dict[int, list[dict]] = {}
+        for ann in coco.get("annotations", []):
+            ann_by_image.setdefault(ann["image_id"], []).append(ann)
+
+        log.info(
+            "  %s — %d images, %d annotations",
+            json_path.name, len(img_meta), len(coco.get("annotations", [])),
+        )
+
+        for img_id, meta in tqdm(img_meta.items(), desc="ttpla", unit="image"):
+            annotations = ann_by_image.get(img_id, [])
+            if not annotations:
+                continue
+
+            img_w = meta["width"]
+            img_h = meta["height"]
+            file_name = meta["file_name"]
+
+            # Locate the image on disk (file_name may include subdirectory)
+            image_path: Path | None = None
+            for candidate in dataset_dir.rglob(Path(file_name).name):
+                image_path = candidate
+                break
+            if image_path is None:
+                log.debug("Image not found on disk: %s", file_name)
+                stats["skipped_no_image"] += 1
+                continue
+
+            remapped_lines: list[str] = []
+            for ann in annotations:
+                cat_id = ann.get("category_id")
+                master_cls = cat_id_to_master.get(cat_id)
+                if master_cls is None:
+                    continue  # void or unmapped
+
+                bbox = ann.get("bbox")
+                if not bbox or len(bbox) < 4:
+                    continue
+
+                x1, y1, w_box, h_box = bbox[0], bbox[1], bbox[2], bbox[3]
+
+                # Clamp and normalise
+                x1    = max(0, x1)
+                y1    = max(0, y1)
+                w_box = min(w_box, img_w - x1)
+                h_box = min(h_box, img_h - y1)
+
+                if w_box <= 0 or h_box <= 0:
+                    continue
+
+                cx = (x1 + w_box / 2) / img_w
+                cy = (y1 + h_box / 2) / img_h
+                nw = w_box / img_w
+                nh = h_box / img_h
+
+                remapped_lines.append(
+                    f"{master_cls} {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}"
+                )
+
+            if not remapped_lines:
+                stats["skipped_no_valid_class"] += 1
+                continue
+
+            write_sample(image_path, remapped_lines, "ttpla", split, output_dir, stats)
+
+
+# ---------------------------------------------------------------------------
+# Generic YOLO-format dataset processor (Heridal, WiSARD)
 # ---------------------------------------------------------------------------
 
 def remap_yolo_label(
@@ -344,7 +494,9 @@ def process_yolo_dataset(
     label_files = sorted(dataset_dir.rglob("*.txt"))
 
     if not label_files:
-        log.warning("No .txt label files found in dataset '%s' at %s", dataset_name, dataset_dir)
+        log.warning(
+            "No .txt label files found in dataset '%s' at %s", dataset_name, dataset_dir
+        )
         return
 
     log.info("Processing dataset '%s' — %d label files found", dataset_name, len(label_files))
@@ -394,19 +546,27 @@ def parse_args() -> argparse.Namespace:
                     "into a single Ultralytics YOLO dataset.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--visdrone_dir", type=str, nargs="*", default=None,
-                        metavar="PATH",
-                        help="One or more paths to VisDrone-DET zips or folders "
-                             "(trainset, valset, testset-dev). Pass the flag once "
-                             "per file, e.g. --visdrone_dir train.zip val.zip test.zip")
-    parser.add_argument("--heridal_dir", type=str, default=None,
-                        help="Path to Heridal dataset folder or .zip archive")
-    parser.add_argument("--ttpla_dir", type=str, default=None,
-                        help="Path to TTPLA dataset folder or .zip archive")
-    parser.add_argument("--wisard_dir", type=str, default=None,
-                        help="Path to WiSARD dataset folder or .zip archive")
-    parser.add_argument("--output_dir", type=str, default="/content/master_uav_dataset",
-                        help="Output directory for the fused dataset")
+    parser.add_argument(
+        "--visdrone_dir", type=str, nargs="*", default=None, metavar="PATH",
+        help="One or more paths to VisDrone-DET zips or folders "
+             "(trainset, valset, testset-dev). Pass each file separately.",
+    )
+    parser.add_argument(
+        "--heridal_dir", type=str, default=None,
+        help="Path to Heridal dataset folder or .zip archive (YOLOv8 export)",
+    )
+    parser.add_argument(
+        "--ttpla_dir", type=str, default=None,
+        help="Path to TTPLA dataset folder or .zip archive (COCO JSON format)",
+    )
+    parser.add_argument(
+        "--wisard_dir", type=str, default=None,
+        help="Path to WiSARD dataset folder or .zip archive (YOLO format, images in RGB/)",
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default="/content/master_uav_dataset",
+        help="Output directory for the fused dataset",
+    )
     return parser.parse_args()
 
 
@@ -419,13 +579,18 @@ def main() -> None:
 
     yolo_dataset_inputs = {
         "heridal": args.heridal_dir,
-        "ttpla":   args.ttpla_dir,
         "wisard":  args.wisard_dir,
     }
 
-    if not args.visdrone_dir and all(v is None for v in yolo_dataset_inputs.values()):
-        log.error("No dataset paths provided. Pass at least one of "
-                  "--visdrone_dir, --heridal_dir, --ttpla_dir, --wisard_dir.")
+    if (
+        not args.visdrone_dir
+        and args.ttpla_dir is None
+        and all(v is None for v in yolo_dataset_inputs.values())
+    ):
+        log.error(
+            "No dataset paths provided. Pass at least one of "
+            "--visdrone_dir, --heridal_dir, --ttpla_dir, --wisard_dir."
+        )
         raise SystemExit(1)
 
     stats = {
@@ -438,14 +603,19 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="avsca_scratch_") as scratch_str:
         scratch = Path(scratch_str)
 
-        # --- VisDrone (custom CSV parser, one entry per zip/folder) ---
+        # --- VisDrone: custom CSV parser, one entry per split zip ---
         for idx, raw_vd_path in enumerate(args.visdrone_dir or []):
-            scratch_name = f"visdrone_{idx}"
-            visdrone_path = resolve_dataset_path(raw_vd_path, scratch, scratch_name)
+            visdrone_path = resolve_dataset_path(raw_vd_path, scratch, f"visdrone_{idx}")
             if visdrone_path is not None:
                 process_visdrone(visdrone_path, output_dir, stats)
 
-        # --- YOLO-format datasets ---
+        # --- TTPLA: COCO JSON parser ---
+        if args.ttpla_dir is not None:
+            ttpla_path = resolve_dataset_path(args.ttpla_dir, scratch, "ttpla")
+            if ttpla_path is not None:
+                process_ttpla(ttpla_path, output_dir, stats)
+
+        # --- Heridal & WiSARD: generic YOLO parser ---
         for name, raw_path in yolo_dataset_inputs.items():
             if raw_path is None:
                 log.info("Skipping dataset '%s' (no path provided)", name)
