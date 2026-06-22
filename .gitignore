@@ -43,3 +43,6 @@ Thumbs.db
 *.key
 *.pem
 credentials.json
+
+# Internal prompts — not for public consumption
+TRAINING_PROMPT.md
