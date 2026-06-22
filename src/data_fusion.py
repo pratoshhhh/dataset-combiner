@@ -41,8 +41,7 @@ MASTER_CLASSES = {
     1: "vehicle",
     2: "building",
     3: "wire",
-    4: "two-wheeler",
-    5: "utility-tower",
+    4: "utility-tower",
 }
 
 # ---------------------------------------------------------------------------
@@ -51,27 +50,23 @@ MASTER_CLASSES = {
 # 0  = ignored region  (score == 0 also flags ignored)
 # 1  = pedestrian      → human (0)
 # 2  = people          → human (0)
-# 3  = bicycle         → two-wheeler (4)
+# 3  = bicycle         → discard (two-wheeler class removed)
 # 4  = car             → vehicle (1)
 # 5  = van             → vehicle (1)
 # 6  = truck           → vehicle (1)
-# 7  = tricycle        → two-wheeler (4)
-# 8  = awning-tricycle → two-wheeler (4)
+# 7  = tricycle        → discard (two-wheeler class removed)
+# 8  = awning-tricycle → discard (two-wheeler class removed)
 # 9  = bus             → vehicle (1)
-# 10 = motor           → two-wheeler (4)
+# 10 = motor           → discard (two-wheeler class removed)
 # 11 = others          → discard
 # ---------------------------------------------------------------------------
 VISDRONE_REMAP: dict[int, int] = {
-    1:  0,
-    2:  0,
-    4:  1,
-    5:  1,
-    6:  1,
-    9:  1,
-    3:  4,
-    7:  4,
-    8:  4,
-    10: 4,
+    1: 0,
+    2: 0,
+    4: 1,
+    5: 1,
+    6: 1,
+    9: 1,
 }
 
 # ---------------------------------------------------------------------------
@@ -79,18 +74,18 @@ VISDRONE_REMAP: dict[int, int] = {
 #
 # Confirmed classes from dataset inspection:
 #   cable          → wire (3)
-#   tower_lattice  → utility-tower (5)
-#   tower_wooden   → utility-tower (5)
-#   tower_monopole → utility-tower (5)
-#   tower_tucohy   → utility-tower (5)   ← 5th class found in actual data
+#   tower_lattice  → utility-tower (4)
+#   tower_wooden   → utility-tower (4)
+#   tower_monopole → utility-tower (4)
+#   tower_tucohy   → utility-tower (4)   ← 5th class found in actual data
 #   void           → discard
 # ---------------------------------------------------------------------------
 TTPLA_NAME_REMAP: dict[str, int] = {
     "cable":          3,
-    "tower_lattice":  5,
-    "tower_wooden":   5,
-    "tower_monopole": 5,
-    "tower_tucohy":   5,
+    "tower_lattice":  4,
+    "tower_wooden":   4,
+    "tower_monopole": 4,
+    "tower_tucohy":   4,
 }
 
 # ---------------------------------------------------------------------------

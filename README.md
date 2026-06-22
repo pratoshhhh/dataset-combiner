@@ -10,16 +10,15 @@ Fuses four aerial computer vision datasets into a single **Ultralytics-compatibl
 | 1 | vehicle |
 | 2 | building |
 | 3 | wire |
-| 4 | two-wheeler |
-| 5 | utility-tower |
+| 4 | utility-tower |
 
 ## Source Datasets
 
 | Dataset | Source | Annotation Format | Classes Mapped |
 |---------|--------|-------------------|----------------|
-| [VisDrone-DET](https://github.com/VisDrone/VisDrone-Dataset) | GitHub | Custom CSV, absolute pixels, 1-indexed | pedestrian/people→0, car/van/truck/bus→1, bicycle/tricycle/motor→4 |
+| [VisDrone-DET](https://github.com/VisDrone/VisDrone-Dataset) | GitHub | Custom CSV, absolute pixels, 1-indexed | pedestrian/people→0, car/van/truck/bus→1, bicycle/tricycle/motor discarded |
 | [Heridal](https://universe.roboflow.com/licenta-ynwvo/heridal-lrbkc) | Roboflow | YOLO format | person→0 |
-| [TTPLA](https://github.com/R3ab/ttpla_dataset) | GitHub | COCO JSON, polygon segmentation | cable→3, tower_lattice/wooden/monopole/tucohy→5 |
+| [TTPLA](https://github.com/R3ab/ttpla_dataset) | GitHub | COCO JSON, polygon segmentation | cable→3, tower_lattice/wooden/monopole/tucohy→4 |
 | [Drone Buildings](https://universe.roboflow.com/buildingyolo/drone-buildings) | Roboflow | YOLO format | building/building2→2, statue discarded |
 
 ## Project Structure
@@ -95,8 +94,8 @@ The generated `data.yaml` is directly consumable by Ultralytics YOLO:
 path: /content/master_uav_dataset
 train: images/train
 val:   images/val
-nc: 6
-names: [human, vehicle, building, wire, two-wheeler, utility-tower]
+nc: 5
+names: [human, vehicle, building, wire, utility-tower]
 ```
 
 ## CLI Reference
