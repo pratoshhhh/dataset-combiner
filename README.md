@@ -11,6 +11,7 @@ Fuses four aerial computer vision datasets into a single **Ultralytics-compatibl
 | 2 | building |
 | 3 | wire |
 | 4 | utility-tower |
+| 5 | tree |
 
 ## Source Datasets
 
@@ -20,6 +21,7 @@ Fuses four aerial computer vision datasets into a single **Ultralytics-compatibl
 | [Heridal](https://universe.roboflow.com/licenta-ynwvo/heridal-lrbkc) | Roboflow | YOLO format | person→0 |
 | [TTPLA](https://github.com/R3ab/ttpla_dataset) | GitHub | COCO JSON, polygon segmentation | cable→3, tower_lattice/wooden/monopole/tucohy→4 |
 | [Drone Buildings](https://universe.roboflow.com/buildingyolo/drone-buildings) | Roboflow | YOLO format | building/building2→2, statue discarded |
+| [Tree-Top-View](https://universe.roboflow.com/pine-tree/tree-top-view-k71bz) | Roboflow / Zenodo | YOLO format | tree-top→5 |
 
 ## Project Structure
 
@@ -65,6 +67,7 @@ Each argument accepts either a directory path or a `.zip` archive — zips are e
    HERIDAL.yolov8.zip
    data_original_size_v1.zip
    Drone Buildings.v1i.yolov8.zip
+   tree-top-view.yolov8.zip
    ```
 
 2. **Push this repo to GitHub** (one-time):
@@ -94,8 +97,8 @@ The generated `data.yaml` is directly consumable by Ultralytics YOLO:
 path: /content/master_uav_dataset
 train: images/train
 val:   images/val
-nc: 5
-names: [human, vehicle, building, wire, utility-tower]
+nc: 6
+names: [human, vehicle, building, wire, utility-tower, tree]
 ```
 
 ## CLI Reference
@@ -105,6 +108,7 @@ usage: data_fusion.py [-h] [--visdrone_dir [PATH ...]]
                       [--heridal_dir HERIDAL_DIR]
                       [--ttpla_dir TTPLA_DIR]
                       [--building_dir BUILDING_DIR]
+                      [--tree_dir TREE_DIR]
                       [--output_dir OUTPUT_DIR]
 
 optional arguments:
@@ -112,6 +116,7 @@ optional arguments:
   --heridal_dir     Path to Heridal dataset folder or .zip archive
   --ttpla_dir       Path to TTPLA dataset folder or .zip archive
   --building_dir    Path to Drone Buildings dataset folder or .zip archive
+  --tree_dir        Path to Tree-Top-View dataset folder or .zip archive
   --output_dir      Output directory (default: /content/master_uav_dataset)
 ```
 

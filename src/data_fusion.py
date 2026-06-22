@@ -42,6 +42,7 @@ MASTER_CLASSES = {
     2: "building",
     3: "wire",
     4: "utility-tower",
+    5: "tree",
 }
 
 # ---------------------------------------------------------------------------
@@ -101,6 +102,12 @@ YOLO_REMAP: dict[str, dict[int, int]] = {
     "building": {
         0: 2,   # building  → building
         1: 2,   # building2 → building
+    },
+    # Tree-Top-View dataset (universe.roboflow.com/pine-tree/tree-top-view-k71bz)
+    # Source: Zenodo record 5914554 — 580 drone top-view images
+    # Single class: tree-top (0) → tree (5)
+    "tree": {
+        0: 5,   # tree-top → tree
     },
 }
 
@@ -558,6 +565,10 @@ def parse_args() -> argparse.Namespace:
         help="Path to Drone Buildings dataset folder or .zip archive (YOLOv8 export)",
     )
     parser.add_argument(
+        "--tree_dir", type=str, default=None,
+        help="Path to Tree-Top-View dataset folder or .zip archive (YOLOv8 export)",
+    )
+    parser.add_argument(
         "--output_dir", type=str, default="/content/master_uav_dataset",
         help="Output directory for the fused dataset",
     )
@@ -574,6 +585,7 @@ def main() -> None:
     yolo_dataset_inputs = {
         "heridal":  args.heridal_dir,
         "building": args.building_dir,
+        "tree":     args.tree_dir,
     }
 
     if (
@@ -583,7 +595,7 @@ def main() -> None:
     ):
         log.error(
             "No dataset paths provided. Pass at least one of "
-            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir."
+            "--visdrone_dir, --heridal_dir, --ttpla_dir, --building_dir, --tree_dir."
         )
         raise SystemExit(1)
 
