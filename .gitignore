@@ -46,3 +46,4 @@ credentials.json
 
 # Internal prompts — not for public consumption
 TRAINING_PROMPT.md
+MODEL_AGENT_BRIEF.md
