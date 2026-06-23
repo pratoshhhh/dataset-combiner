@@ -15,6 +15,7 @@ runs/
 *.tar.gz
 *.tar
 master_uav_dataset/
+master_uav_dataset2/
 
 # Python
 __pycache__/
